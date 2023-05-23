@@ -91,14 +91,14 @@ RayHit InitializeRayHit()
 void HitSurfaceDataFromGBuffers(float2 screenUV, inout half3 albedo, inout half3 specular, inout half occlusion, inout half3 normal, inout half smoothness)
 {
     half4 gBuffer0 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer0, my_point_clamp_sampler, screenUV, 0);
-	half4 gBuffer1 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer1, my_point_clamp_sampler, screenUV, 0);
-	half4 gBuffer2 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer2, my_point_clamp_sampler, screenUV, 0);
+    half4 gBuffer1 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer1, my_point_clamp_sampler, screenUV, 0);
+    half4 gBuffer2 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer2, my_point_clamp_sampler, screenUV, 0);
 
     albedo = gBuffer0.rgb;
     specular = (UnpackMaterialFlags(gBuffer0.a) == kMaterialFlagSpecularSetup) ? gBuffer1.rgb : lerp(kDieletricSpec.rgb, max(albedo.rgb, kDieletricSpec.rgb), gBuffer1.r); // Specular & Metallic setup conversion
-	occlusion = gBuffer1.a;
-	normal = UnpackNormal(gBuffer2.rgb);
-	smoothness = gBuffer2.a;
+    occlusion = gBuffer1.a;
+    normal = UnpackNormal(gBuffer2.rgb);
+    smoothness = gBuffer2.a;
 }
 
 float GenerateRandomFloat(float2 screenUV)

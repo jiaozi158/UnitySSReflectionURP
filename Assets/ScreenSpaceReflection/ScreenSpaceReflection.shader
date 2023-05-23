@@ -19,7 +19,7 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
         Pass
 		{
 			Name "Screen Space Reflection Approximation"
-		    Tags { "LightMode" = "Screen Space Reflection" }
+			Tags { "LightMode" = "Screen Space Reflection" }
 			
 			HLSLPROGRAM
 			#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
@@ -46,7 +46,6 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 			half _MaxStep;
 			half _DownSample;
 			CBUFFER_END
-			float4x4 unity_StereoMatrixInvVP[2];
 
 			#include "./ScreenSpaceReflection.hlsl"
 
@@ -123,7 +122,7 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 		Pass
 		{
 			Name "Composite"
-		    Tags { "LightMode" = "Screen Space Reflection" }
+			Tags { "LightMode" = "Screen Space Reflection" }
 
 			// Preserve source alpha
 			Blend SrcAlpha OneMinusSrcAlpha, SrcAlpha SrcAlpha
