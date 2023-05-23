@@ -179,6 +179,8 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
         private RTHandle reflectHandle;
 
         public ScreenSpaceReflection ssrVolume;
+        private static readonly int minSmoothness = Shader.PropertyToID("_MinSmoothness");
+        private static readonly int fadeSmoothness = Shader.PropertyToID("_FadeSmoothness");
         private static readonly int edgeFade = Shader.PropertyToID("_EdgeFade");
         private static readonly int thickness = Shader.PropertyToID("_Thickness");
         private static readonly int stepSize = Shader.PropertyToID("_StepSize");
@@ -266,7 +268,9 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
                     ssrMaterial.SetFloat(stepSizeMultiplier, 1.1f);
                     ssrMaterial.SetFloat(maxStep, ssrVolume.maxStep.value);
                 }
-                ssrMaterial.SetFloat(edgeFade, ssrVolume.edgeFade.value);
+                ssrMaterial.SetFloat(minSmoothness, ssrVolume.minSmoothness.value);
+                ssrMaterial.SetFloat(fadeSmoothness, ssrVolume.fadeSmoothness.value <= ssrVolume.minSmoothness.value ? ssrVolume.minSmoothness.value + 0.01f : ssrVolume.fadeSmoothness.value);
+                ssrMaterial.SetFloat(edgeFade, ssrVolume.edgeFade.value); 
                 ssrMaterial.SetFloat(thickness, ssrVolume.thickness.value);
                 ssrMaterial.SetFloat(downSample, (float)resolution * 0.25f);
 

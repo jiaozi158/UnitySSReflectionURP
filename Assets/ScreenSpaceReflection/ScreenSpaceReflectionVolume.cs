@@ -10,6 +10,10 @@ public class ScreenSpaceReflection : VolumeComponent, IPostProcessComponent
     public SSRStateParameter state = new(value: State.Disabled, overrideState: true);
     [Tooltip("Specifies the algorithm to use for screen space reflection.")]
     public SSRAlgorithmParameter algorithm = new(value: Algorithm.Approximation, overrideState: false);
+    [InspectorName("Minimum Smoothness"), Tooltip("SSR ignores a pixel if its smoothness value is lower than this value.")]
+    public ClampedFloatParameter minSmoothness = new(value: 0.4f, min: 0.0f, max: 1.0f, overrideState: false);
+    [InspectorName("Smoothness Fade Start"), Tooltip("Use the slider to set the smoothness value at which SSR reflections begin to fade out.")]
+    public ClampedFloatParameter fadeSmoothness = new(value: 0.6f, min: 0.0f, max: 1.0f, overrideState: false);
     [InspectorName("Screen Edge Fade Distance"), Tooltip("Fades out screen space reflection when it is near the screen boundaries.")]
     public ClampedFloatParameter edgeFade = new(value: 0.1f, min: 0.0f, max: 1.0f, overrideState: true);
     [Tooltip("The thickness mode of screen space reflection.")]

@@ -3,6 +3,8 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
     Properties
     {
 		[HideInInspector] _Seed("Private: Random Seed", Float) = 0.0
+		[HideInInspector] _MinSmoothness("Minimum Smoothness", Float) = 0.4
+		[HideInInspector] _FadeSmoothness("Smoothness Fade Start", Float) = 0.6
 		[HideInInspector] _EdgeFade("Screen Edge Fade Distance", Float) = 0.1
 		[HideInInspector] _Thickness("Object Thickness", Float) = 0.25
 		[HideInInspector] _StepSize("Step Size", Float) = 0.4
@@ -39,6 +41,8 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 			
 			CBUFFER_START(UnityPerMaterial)
 			half _Seed;
+			half _MinSmoothness;
+			half _FadeSmoothness;
 			half _EdgeFade;
 			half _Thickness;
 			half _StepSize;
@@ -68,6 +72,11 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 				if (isBackground)
 					return half4(SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, screenUV, 0.0).rgb, 0.0);
 
+				half4 gBuffer2 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer2, my_point_clamp_sampler, UnityStereoTransformScreenSpaceTex(screenUV), 0);
+
+				if (gBuffer2.a < _MinSmoothness)
+					return half4(SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, screenUV, 0.0).rgb, 0.0);
+
 				// The world position reconstruction failed on XR platforms.
 				// Reason: "UNITY_MATRIX_I_VP" is not set as a stereo matrix.
 				float3 positionWS = ComputeWorldSpacePosition(screenUV, depth, UNITY_MATRIX_I_VP);
@@ -78,7 +87,7 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 				else
 					invViewDirWS = -normalize(UNITY_MATRIX_V[2].xyz);
 				
-				half4 gBuffer2 = SAMPLE_TEXTURE2D_X_LOD(_GBuffer2, my_point_clamp_sampler, UnityStereoTransformScreenSpaceTex(screenUV), 0);
+				
 				half3 normalWS = UnpackNormal(gBuffer2.xyz);
 
 				Ray ray;
@@ -147,6 +156,8 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 
 			CBUFFER_START(UnityPerMaterial)
 			half _Seed;
+			half _MinSmoothness;
+			half _FadeSmoothness;
 			half _EdgeFade;
 			half _Thickness;
 			half _StepSize;
@@ -178,9 +189,11 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 				if (isBackground)
 					return half4(0.0, 0.0, 0.0, 0.0);
 
-				half smoothness = SAMPLE_TEXTURE2D_X_LOD(_GBuffer2, my_point_clamp_sampler, screenUV, 0.0).a;
+				half smoothness = SAMPLE_TEXTURE2D_X_LOD(_GBuffer2, my_point_clamp_sampler, screenUV, 0.0).a; // 0.6
 				if (smoothness == 0.0)
 					return half4(0.0, 0.0, 0.0, 0.0);
+
+				half fadeSmoothness = (_FadeSmoothness < smoothness) ? 1.0 : (smoothness - _MinSmoothness) * rcp(_FadeSmoothness - _MinSmoothness);
 				
 				half smoothness2 = smoothness * smoothness;
 				half smoothness4 = smoothness2 * smoothness2;
@@ -191,7 +204,7 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 			#else
 				half3 reflectColor = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_BlitTexture, UnityStereoTransformScreenSpaceTex(screenUV), 0.0).rgb;
 			#endif
-				return half4(reflectColor, smoothness4);
+				return half4(reflectColor, smoothness4 * fadeSmoothness);
 			}
 			ENDHLSL
 		}

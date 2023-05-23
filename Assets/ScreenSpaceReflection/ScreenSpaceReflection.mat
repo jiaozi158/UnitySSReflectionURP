@@ -100,11 +100,13 @@ Material:
     - _DstBlendAlpha: 0
     - _EdgeFade: 0.3
     - _EnvironmentReflections: 1
+    - _FadeSmoothness: 0.6
     - _GlossMapScale: 0
     - _Glossiness: 0
     - _GlossyReflections: 0
     - _MaxStep: 32
     - _Metallic: 0
+    - _MinSmoothness: 0.4
     - _OcclusionStrength: 1
     - _Parallax: 0.005
     - _QueueOffset: 0
