@@ -17,11 +17,11 @@ Screenshots
  
 Enable SSR:
  
- ![StormTrooperSSROn](https://github.com/jiaozi158/UnitySSReflectionURP/blob/main/Documentation/Images/Others/StormTrooperSSR.jpg)
+ ![StormTrooperSSROn](https://github.com/jiaozi158/UnitySSReflectionURP/blob/main/Documentation/Images/Others/Storm Trooper SSR.jpg)
  
 Disable SSR:
  
- ![StormTrooperSSROff](https://github.com/jiaozi158/UnitySSReflectionURP/blob/main/Documentation/Images/Others/StormTrooper.jpg)
+ ![StormTrooperSSROff](https://github.com/jiaozi158/UnitySSReflectionURP/blob/main/Documentation/Images/Others/Storm Trooper.jpg)
  
 Documentation
 ------------
