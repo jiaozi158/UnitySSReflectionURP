@@ -133,8 +133,8 @@ RayHit RayMarching(Ray ray, half dither, float distance)
 {
     RayHit rayHit = InitializeRayHit();
     
-    // Use constant STEP_SIZE for custom quality mode.
-    half stepSize = STEP_SIZE * lerp(1.0, 1.0, distance); //(_StepSizeMultiplier == 1.11) ? STEP_SIZE : STEP_SIZE * lerp(0.2, 1.0, distance * 0.1);
+    // Use a constant initial STEP_SIZE.
+    half stepSize = STEP_SIZE;
     half marchingThickness = _Thickness;
     half accumulatedStep = 0.0;
 

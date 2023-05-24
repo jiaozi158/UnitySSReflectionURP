@@ -133,6 +133,8 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
             screenSpaceReflectionPass.Dispose();
         if (backFaceDepthPass != null)
             backFaceDepthPass.Dispose();
+        if (forwardGBufferPass != null)
+            forwardGBufferPass.Dispose();
     }
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -156,7 +158,7 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
         
         if (renderingData.cameraData.camera.cameraType != CameraType.Preview && isActive && (!isDebugger || renderingDebugger))
         {
-            if (!isUsingDeferred || isOpenGL) { forwardGBufferPass.ssrVolume = ssrVolume; renderer.EnqueuePass(forwardGBufferPass); }
+            if (!isUsingDeferred || isOpenGL) { renderer.EnqueuePass(forwardGBufferPass); }
             backFaceDepthPass.ssrVolume = ssrVolume;
             renderer.EnqueuePass(backFaceDepthPass);
             screenSpaceReflectionPass.ssrVolume = ssrVolume;
@@ -376,7 +378,6 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
 
         // Depth Priming.
         private RenderStateBlock renderStateBlock = new(RenderStateMask.Nothing);
-        public ScreenSpaceReflection ssrVolume;
 
         public RTHandle gBuffer0;
         public RTHandle gBuffer1;
