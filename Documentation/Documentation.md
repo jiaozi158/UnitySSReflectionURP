@@ -15,3 +15,7 @@ Setup
 - Set the **State** to **Enabled** in Screen Space Reflection Volume.
 
 - Adjust the settings in URP Volume and use different Volume types (global and local) to control SSR effect if needed.
+
+- Make sure that there exists one Deferred renderer in the active URP asset to keep all Deferred shader variants in Forward path.
+
+ ![AddDeferredToList](https://github.com/jiaozi158/UnitySSReflectionURP/blob/main/Documentation/Images/Settings/URP_KeepDeferredVariants.png)

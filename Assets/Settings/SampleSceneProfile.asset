@@ -108,13 +108,16 @@ MonoBehaviour:
     m_Value: 1
   thickness:
     m_OverrideState: 1
-    m_Value: 0.2
+    m_Value: 0.35
   quality:
     m_OverrideState: 1
     m_Value: 3
   maxStep:
     m_OverrideState: 1
     m_Value: 32
+  accumFactor:
+    m_OverrideState: 1
+    m_Value: 0.9
 --- !u!114 &-1446898803353751859
 MonoBehaviour:
   m_ObjectHideFlags: 3

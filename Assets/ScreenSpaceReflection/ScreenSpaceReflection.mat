@@ -14,7 +14,8 @@ Material:
   m_ValidKeywords:
   - _BACKFACE_ENABLED
   - _SSR_APPROX_COLOR_MIPMAPS
-  m_InvalidKeywords: []
+  m_InvalidKeywords:
+  - _SSR_ACCUM
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -83,6 +84,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AccumulationFactor: 0.75
     - _AlphaClip: 0
     - _AlphaToMask: 0
     - _Blend: 0
@@ -121,7 +123,7 @@ Material:
     - _StepSize: 0.2
     - _StepSizeMultiplier: 1.1
     - _Surface: 0
-    - _Thickness: 0.2
+    - _Thickness: 0.35
     - _WorkflowMode: 1
     - _ZWrite: 1
     m_Colors:

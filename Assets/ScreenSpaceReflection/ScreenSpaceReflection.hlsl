@@ -11,6 +11,8 @@
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/BRDF.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Random.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonLighting.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/ImageBasedLighting.hlsl"
 
 TEXTURE2D_X_HALF(_GBuffer0); // color.rgb + materialFlags.a
 TEXTURE2D_X_HALF(_GBuffer1); // specular.rgb + oclusion.a
@@ -22,6 +24,7 @@ TEXTURE2D_X(_CameraBackDepthTexture);
 
 SAMPLER(sampler_BlitTexture);
 SAMPLER(my_point_clamp_sampler);
+float4 _BlitTexture_TexelSize;
 
 #ifndef kMaterialFlagSpecularSetup
 #define kMaterialFlagSpecularSetup 8 // Lit material use specular setup instead of metallic setup
@@ -86,6 +89,31 @@ RayHit InitializeRayHit()
     rayHit.normal = half3(0.0, 0.0, 0.0);
     rayHit.smoothness = 0.0;
     return rayHit;
+}
+
+// Modified from HDRP's ScreenSpaceReflection.compute
+// 
+// GGX VNDF via importance sampling
+half3 ImportanceSampleGGX_VNDF(float2 random, half3 normalWS, half3 viewDirWS, half smoothness, out bool valid)
+{
+    half roughness = (1.0 - smoothness); // This requires perceptual roughness, not roughness [(1.0 - smoothness) * (1.0 - smoothness)].
+    roughness *= roughness;
+
+    half3x3 localToWorld = GetLocalFrame(normalWS);
+
+    half VdotH;
+    half3 localV, localH;
+    SampleGGXVisibleNormal(random, viewDirWS, localToWorld, roughness, localV, localH, VdotH);
+
+    // Compute the reflection direction
+    half3 localL = 2.0 * VdotH * localH - localV;
+    half3 outgoingDir = mul(localL, localToWorld);
+
+    half NdotL = dot(normalWS, outgoingDir);
+
+    valid = (NdotL >= 0.001);
+
+    return outgoingDir;
 }
 
 void HitSurfaceDataFromGBuffers(float2 screenUV, inout half3 albedo, inout half3 specular, inout half occlusion, inout half3 normal, inout half smoothness)
@@ -190,17 +218,17 @@ RayHit RayMarching(Ray ray, half dither, float distance)
         half Sign;
     #if defined(_BACKFACE_ENABLED)
         if (hitDepth > sceneBackDepth && backDepthValid)
-            Sign = sign(backDepthDiff);
+            Sign = FastSign(backDepthDiff);
         else
-            Sign = sign(depthDiff);
+            Sign = FastSign(depthDiff);
     #else
-        Sign = sign(depthDiff);
+        Sign = FastSign(depthDiff);
     #endif
         startBinarySearch = startBinarySearch || (Sign == -1) ? true : false; // Start binary search when the ray is behind the actual intersection.
 
         // Half the step size each time when binary search starts.
         // If the ray passes through the intersection, we flip the sign of step size.
-        if (startBinarySearch && sign(stepSize) != Sign)
+        if (startBinarySearch && FastSign(stepSize) != Sign)
         {
             stepSize = stepSize * Sign * 0.5;
             marchingThickness = marchingThickness * 0.5;
@@ -242,7 +270,7 @@ RayHit RayMarching(Ray ray, half dither, float distance)
             // Cam->--x--|-y
             //           |
             // Using the position between "x" and "y" is more accurate than using "y" directly.
-            if (Sign != sign(lastDepthDiff))
+            if (Sign != FastSign(lastDepthDiff))
             {
                 // Seems that interpolating screenUV is giving worse results, so do it for positionWS only.
                 //rayPositionNDC.xy = lerp(lastRayPositionNDC, rayPositionNDC.xy, lastDepthDiff * rcp(lastDepthDiff - depthDiff));

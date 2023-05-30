@@ -24,6 +24,8 @@ public class ScreenSpaceReflection : VolumeComponent, IPostProcessComponent
     public SSRQualityParameter quality = new(value: Quality.Low, overrideState: false);
     [InspectorName("Max Ray Steps"), Tooltip("The maximum ray steps for custom quality mode.")]
     public ClampedIntParameter maxStep = new(value: 16, min: 4, max: 128, overrideState: false);
+    [InspectorName("Accumulation Factor"), Tooltip("The speed of accumulation convergence for PBR Accumulation mode. Does not work properly with distortion post-processing effects due to URP limitations.")]
+    public ClampedFloatParameter accumFactor = new(value: 0.75f, min: 0.0f, max: 1.0f, overrideState: false);
 
     public bool IsActive()
     {
@@ -60,7 +62,7 @@ public class ScreenSpaceReflection : VolumeComponent, IPostProcessComponent
         [Tooltip("Cast rays in deterministic directions to compute reflections.")]
         Approximation = 0,
 
-        [InspectorName("PBR Accumulation (WIP)"), Tooltip("Accumulate multiple frames to compute rough reflections. Currently falls back to approximation mode.")]
+        [InspectorName("PBR Accumulation"), Tooltip("Cast rays in stochastic directions and accumulate multiple frames to compute rough reflections.")]
         PBRAccumulation = 1
     }
 

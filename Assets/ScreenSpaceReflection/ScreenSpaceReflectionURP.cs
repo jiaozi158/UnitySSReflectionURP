@@ -48,6 +48,9 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
     [Header("Approximation")]
     [Tooltip("Controls how URP compute rough reflections in approximation mode.")]
     public MipmapsMode mipmapsMode = MipmapsMode.Trilinear;
+    [Header("PBR Accumulation")]
+    [Tooltip("Enable this to denoise SSR at anytime in SceneView. This is disabled by default because URP SceneView only updates motion vectors in play mode.")]
+    public bool sceneView = false;
 
     private const string ssrShaderName = "Hidden/Lighting/ScreenSpaceReflection";
     private ScreenSpaceReflectionPass screenSpaceReflectionPass;
@@ -155,12 +158,21 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
         ScreenSpaceReflection ssrVolume = stack.GetComponent<ScreenSpaceReflection>();
         bool isActive = ssrVolume != null && ssrVolume.IsActive();
         bool isDebugger = DebugManager.instance.isAnyDebugUIActive;
-        
+
+        bool isMotionValid = true;
+#if UNITY_EDITOR
+        // Motion Vectors of URP SceneView don't get updated each frame when not entering play mode. (Might be fixed when supporting scene view anti-aliasing)
+        // Change the method to multi-frame accumulation (offline mode) if SceneView is not in play mode.
+        isMotionValid = sceneView || UnityEditor.EditorApplication.isPlaying || renderingData.cameraData.camera.cameraType != CameraType.SceneView;
+#endif
+
         if (renderingData.cameraData.camera.cameraType != CameraType.Preview && isActive && (!isDebugger || renderingDebugger))
         {
             if (!isUsingDeferred || isOpenGL) { renderer.EnqueuePass(forwardGBufferPass); }
             backFaceDepthPass.ssrVolume = ssrVolume;
             renderer.EnqueuePass(backFaceDepthPass);
+            screenSpaceReflectionPass.isMotionValid = isMotionValid;
+            screenSpaceReflectionPass.renderPassEvent = ssrVolume.algorithm == ScreenSpaceReflection.Algorithm.PBRAccumulation ? (ssrVolume.accumFactor.value == 0.0f ? RenderPassEvent.BeforeRenderingPostProcessing : RenderPassEvent.AfterRenderingPostProcessing) : RenderPassEvent.BeforeRenderingTransparents;
             screenSpaceReflectionPass.ssrVolume = ssrVolume;
             renderer.EnqueuePass(screenSpaceReflectionPass);
             isLogPrinted = false;
@@ -177,8 +189,10 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
         private readonly Material ssrMaterial;
         public Resolution resolution;
         public MipmapsMode mipmapsMode;
+        public bool isMotionValid; // URP SceneView doesn't update motion vectors unless in play mode.
         private RTHandle sourceHandle;
         private RTHandle reflectHandle;
+        private RTHandle historyHandle;
 
         public ScreenSpaceReflection ssrVolume;
         private static readonly int minSmoothness = Shader.PropertyToID("_MinSmoothness");
@@ -189,6 +203,7 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
         private static readonly int stepSizeMultiplier = Shader.PropertyToID("_StepSizeMultiplier");
         private static readonly int maxStep = Shader.PropertyToID("_MaxStep");
         private static readonly int downSample = Shader.PropertyToID("_DownSample");
+        private static readonly int accumFactor = Shader.PropertyToID("_AccumulationFactor");
 
         public ScreenSpaceReflectionPass(Resolution resolution, MipmapsMode mipmapsMode, Material material)
         {
@@ -201,29 +216,46 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
         {
             sourceHandle?.Release();
             reflectHandle?.Release();
+            historyHandle?.Release();
         }
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            var desc = renderingData.cameraData.cameraTargetDescriptor;
+            RenderTextureDescriptor desc = renderingData.cameraData.cameraTargetDescriptor;
             desc.depthBufferBits = 0;
             desc.msaaSamples = 1;
             desc.useMipMap = false;
-            
-            RenderingUtils.ReAllocateIfNeeded(ref sourceHandle, desc, FilterMode.Trilinear, TextureWrapMode.Clamp, name: "_ScreenSpaceReflectionSourceTexture");
-            cmd.SetGlobalTexture("_ScreenSpaceReflectionColorTexture", sourceHandle);
 
-            desc.width = (int)resolution * (int)(desc.width * 0.25f);
-            desc.height = (int)resolution * (int)(desc.height * 0.25f);
-            desc.useMipMap = (mipmapsMode == MipmapsMode.Trilinear);
-            //desc.colorFormat = RenderTextureFormat.ARGBHalf; // needs alpha channel to store hit mask.
-            FilterMode filterMode = (mipmapsMode == MipmapsMode.Trilinear) ? FilterMode.Trilinear : FilterMode.Point;
+            if (ssrVolume.algorithm == ScreenSpaceReflection.Algorithm.PBRAccumulation)
+            {
+                RenderTextureDescriptor descHit = desc;
+                descHit.width = (int)resolution * (int)(desc.width * 0.25f);
+                descHit.height = (int)resolution * (int)(desc.height * 0.25f);
+                descHit.colorFormat = RenderTextureFormat.ARGBHalf; // Store "hitUV.xy" + "fresnel.z"
+                RenderingUtils.ReAllocateIfNeeded(ref sourceHandle, descHit, FilterMode.Point, TextureWrapMode.Clamp, name: "_ScreenSpaceReflectionHitTexture");
+                cmd.SetGlobalTexture("_ScreenSpaceReflectionHitTexture", sourceHandle);
 
-            RenderingUtils.ReAllocateIfNeeded(ref reflectHandle, desc, filterMode, TextureWrapMode.Clamp, name: "_ScreenSpaceReflectionColorTexture");
+                RenderingUtils.ReAllocateIfNeeded(ref historyHandle, desc, FilterMode.Point, TextureWrapMode.Clamp, name: "_ScreenSpaceReflectionHistoryTexture");
+                cmd.SetGlobalTexture("_ScreenSpaceReflectionHistoryTexture", historyHandle);
+                ConfigureInput(ScriptableRenderPassInput.Depth | ScriptableRenderPassInput.Motion);
+
+                RenderingUtils.ReAllocateIfNeeded(ref reflectHandle, desc, FilterMode.Point, TextureWrapMode.Clamp, name: "_ScreenSpaceReflectionColorTexture");
+            }
+            else
+            {
+                RenderingUtils.ReAllocateIfNeeded(ref sourceHandle, desc, FilterMode.Point, TextureWrapMode.Clamp, name: "_ScreenSpaceReflectionSourceTexture");
+
+                desc.width = (int)resolution * (int)(desc.width * 0.25f);
+                desc.height = (int)resolution * (int)(desc.height * 0.25f);
+                desc.useMipMap = (mipmapsMode == MipmapsMode.Trilinear);
+                //desc.colorFormat = RenderTextureFormat.ARGBHalf; // needs alpha channel to store hit mask.
+                FilterMode filterMode = (mipmapsMode == MipmapsMode.Trilinear) ? FilterMode.Trilinear : FilterMode.Point;
+
+                RenderingUtils.ReAllocateIfNeeded(ref reflectHandle, desc, filterMode, TextureWrapMode.Clamp, name: "_ScreenSpaceReflectionColorTexture");
+
+                ConfigureInput(ScriptableRenderPassInput.Depth);
+            }
             ConfigureTarget(sourceHandle, sourceHandle);
-            ConfigureClear(ClearFlag.Color, Color.clear);
-
-            ConfigureInput(ScriptableRenderPassInput.Depth);
         }
 
         public override void FrameCleanup(CommandBuffer cmd)
@@ -232,12 +264,15 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
                 cmd.ReleaseTemporaryRT(Shader.PropertyToID(sourceHandle.name));
             if (reflectHandle != null)
                 cmd.ReleaseTemporaryRT(Shader.PropertyToID(reflectHandle.name));
+            if (historyHandle != null)
+                cmd.ReleaseTemporaryRT(Shader.PropertyToID(historyHandle.name));
         }
 
         public override void OnCameraCleanup(CommandBuffer cmd)
         {
             sourceHandle = null;
             reflectHandle = null;
+            historyHandle = null;
         }
 
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -276,24 +311,52 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
                 ssrMaterial.SetFloat(thickness, ssrVolume.thickness.value);
                 ssrMaterial.SetFloat(downSample, (float)resolution * 0.25f);
 
-                if (mipmapsMode == MipmapsMode.Trilinear)
-                    ssrMaterial.EnableKeyword("_SSR_APPROX_COLOR_MIPMAPS");
-                else
-                    ssrMaterial.DisableKeyword("_SSR_APPROX_COLOR_MIPMAPS");
-
-                if (resolution == Resolution.Full)
-                    ssrMaterial.DisableKeyword("_COMPOSITE_PASS");
-                else
-                    ssrMaterial.EnableKeyword("_COMPOSITE_PASS");
-
-                Blitter.BlitCameraTexture(cmd, renderingData.cameraData.renderer.cameraColorTargetHandle, sourceHandle);
-                Blitter.BlitCameraTexture(cmd, sourceHandle, reflectHandle, ssrMaterial, pass: 0);
-                Blitter.BlitCameraTexture(cmd, reflectHandle, renderingData.cameraData.renderer.cameraColorTargetHandle, ssrMaterial, pass: 1);
-
                 // Blit() may not handle XR rendering correctly.
-                //cmd.Blit(renderingData.cameraData.renderer.cameraColorTargetHandle, sourceHandle);
-                //cmd.Blit(sourceHandle, reflectHandle, ssrMaterial, pass: 0);
-                //cmd.Blit(reflectHandle, renderingData.cameraData.renderer.cameraColorTargetHandle, ssrMaterial, pass: 1);
+
+                bool isPBRAccumulation = ssrVolume.algorithm == ScreenSpaceReflection.Algorithm.PBRAccumulation;
+                if (isPBRAccumulation)
+                {
+                    ssrMaterial.SetFloat(accumFactor, ssrVolume.accumFactor.value);
+                    
+                    // 5 passes, can we optimize?
+                    
+                    // Screen Space Hit
+                    Blitter.BlitCameraTexture(cmd, sourceHandle, sourceHandle, ssrMaterial, pass: 2);
+                    // Resolve Color
+                    Blitter.BlitCameraTexture(cmd, renderingData.cameraData.renderer.cameraColorTargetHandle, reflectHandle, ssrMaterial, pass: 3);
+                    // Blit to Screen (required by denoiser)
+                    Blitter.BlitCameraTexture(cmd, reflectHandle, renderingData.cameraData.renderer.cameraColorTargetHandle);
+                    // Temporal Denoise (alpha blend)
+                    if (isMotionValid && ssrVolume.accumFactor.value != 0.0f)
+                    {
+                        Blitter.BlitCameraTexture(cmd, reflectHandle, renderingData.cameraData.renderer.cameraColorTargetHandle, ssrMaterial, pass: 4);
+
+                        // We need to Load & Store the history texture, or it will not be stored on some platforms.
+                        cmd.SetRenderTarget(
+                        historyHandle,
+                        RenderBufferLoadAction.Load,
+                        RenderBufferStoreAction.Store,
+                        historyHandle,
+                        RenderBufferLoadAction.DontCare,
+                        RenderBufferStoreAction.DontCare);
+                        // Update History
+                        Blitter.BlitCameraTexture(cmd, renderingData.cameraData.renderer.cameraColorTargetHandle, historyHandle);
+                    }
+                }
+                else
+                {
+                    if (mipmapsMode == MipmapsMode.Trilinear)
+                        ssrMaterial.EnableKeyword("_SSR_APPROX_COLOR_MIPMAPS");
+                    else
+                        ssrMaterial.DisableKeyword("_SSR_APPROX_COLOR_MIPMAPS");
+                    
+                    // Copy Scene Color
+                    Blitter.BlitCameraTexture(cmd, renderingData.cameraData.renderer.cameraColorTargetHandle, sourceHandle);
+                    // Screen Space Reflection
+                    Blitter.BlitCameraTexture(cmd, sourceHandle, reflectHandle, ssrMaterial, pass: 0);
+                    // Combine Color
+                    Blitter.BlitCameraTexture(cmd, reflectHandle, renderingData.cameraData.renderer.cameraColorTargetHandle, ssrMaterial, pass: 1);
+                }
             }
             context.ExecuteCommandBuffer(cmd);
             cmd.Clear();
@@ -322,13 +385,11 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
 
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
-            var desc = renderingData.cameraData.cameraTargetDescriptor;
+            RenderTextureDescriptor desc = renderingData.cameraData.cameraTargetDescriptor;
             desc.msaaSamples = 1;
 
             RenderingUtils.ReAllocateIfNeeded(ref backFaceDepthHandle, desc, FilterMode.Point, TextureWrapMode.Clamp, name: "_CameraBackDepthTexture");
             cmd.SetGlobalTexture("_CameraBackDepthTexture", backFaceDepthHandle);
-            ConfigureTarget(backFaceDepthHandle, backFaceDepthHandle);
-            ConfigureClear(ClearFlag.Depth, Color.clear);
         }
 
         public override void FrameCleanup(CommandBuffer cmd)
@@ -349,6 +410,15 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
                 CommandBuffer cmd = CommandBufferPool.Get();
                 using (new ProfilingScope(cmd, new ProfilingSampler(profilerTag)))
                 {
+                    cmd.SetRenderTarget(
+                    backFaceDepthHandle,
+                    RenderBufferLoadAction.DontCare,
+                    RenderBufferStoreAction.DontCare,
+                    backFaceDepthHandle,
+                    RenderBufferLoadAction.DontCare,
+                    RenderBufferStoreAction.Store);
+                    cmd.ClearRenderTarget(clearDepth: true, clearColor: false, Color.clear);
+
                     RendererListDesc rendererListDesc = new(new ShaderTagId("DepthOnly"), renderingData.cullResults, renderingData.cameraData.camera);
                     depthRenderStateBlock.depthState = new DepthState(true, CompareFunction.LessEqual);
                     depthRenderStateBlock.mask |= RenderStateMask.Depth;

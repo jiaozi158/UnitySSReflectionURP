@@ -9,10 +9,16 @@ Screenshots
 ------------
 **Sample Scene**
  
+Approximation:
+ 
  ![SSRApproximation](https://github.com/jiaozi158/UnitySSReflectionURP/blob/main/Documentation/Images/SampleScene/ApproximationMode.jpg)
  
+PBR Accumulation:
+ 
+ ![PBRAccumulation](https://github.com/jiaozi158/UnitySSReflectionURP/blob/main/Documentation/Images/SampleScene/PBRAccumulationMode.jpg)
+ 
 **Not Included**
-
+ 
 [Stormtrooper Star Wars VII](https://www.blendswap.com/blend/13953) by ScottGraham (CC-BY-3.0)
  
 Enable SSR:
@@ -39,7 +45,7 @@ Known Issues & Limitations
 ------------
 - The matrices used to reconstruct world positions are incorrect on XR platforms. (Try porting it to a fullscreen shader graph?)
 - The reflection blending is inaccurate on ForwardOnly objects (Complex Lit) in Deferred rendering path. (Not happening in Forward path)
-- PBR Accumulation mode is not available yet.
+- PBR Accumulation mode doesn't work properly with distortion post-processing effects due to URP limitations. (motion vectors)
 - Transparent objects are ignored by reflections.
 - Reflections are only computed once. (Ray bounce is 1)
  
@@ -49,5 +55,5 @@ MIT ![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)
  
 Details
 ------------
-Part of the code is modified from [UnitySSPathTracing]("https://github.com/jiaozi158/UnitySSPathTracingURP").
+Part of the code is modified from [UnitySSPathTracingURP]("https://github.com/jiaozi158/UnitySSPathTracingURP").
  
