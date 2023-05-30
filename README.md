@@ -39,7 +39,7 @@ Requirements
 - Any rendering path.
 - Any camera projection type. (perspective or orthographic)
 - Multiple Render Targets support. (at least OpenGL ES 3.0 or equivalent)
-- [Extra steps](https://github.com/jiaozi158/UnitySSPathTracingURP/blob/main/Documentation/ForwardPathSupport.md) are needed for OpenGL APIs.
+- [Extra steps](https://github.com/jiaozi158/UnitySSPathTracingURP/blob/main/Documentation/ForwardPathSupport.md#opengl-platforms-extra-setup) are needed for OpenGL APIs.
  
 Known Issues & Limitations
 ------------
