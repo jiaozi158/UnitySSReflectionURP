@@ -3,7 +3,11 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
+#if UNITY_2023_1_OR_NEWER
+[Serializable, VolumeComponentMenu("Lighting/Screen Space Reflection (URP)"), SupportedOnRenderPipeline(typeof(UniversalRenderPipelineAsset))]
+#else
 [Serializable, VolumeComponentMenuForRenderPipeline("Lighting/Screen Space Reflection (URP)", typeof(UniversalRenderPipeline))]
+#endif
 public class ScreenSpaceReflection : VolumeComponent, IPostProcessComponent
 {
     [InspectorName("State (Opaque)"), Tooltip("When set to Enabled, URP processes SSR on opaque objects for Cameras in the influence of this effect's Volume.")]

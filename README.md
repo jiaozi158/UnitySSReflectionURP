@@ -55,5 +55,5 @@ MIT ![MIT License](http://img.shields.io/badge/license-MIT-blue.svg?style=flat)
  
 Details
 ------------
-Part of the code is modified from [UnitySSPathTracingURP]("https://github.com/jiaozi158/UnitySSPathTracingURP").
+Part of the code is modified from [UnitySSPathTracingURP](https://github.com/jiaozi158/UnitySSPathTracingURP).
  

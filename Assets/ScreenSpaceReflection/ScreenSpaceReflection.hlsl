@@ -24,7 +24,11 @@ TEXTURE2D_X(_CameraBackDepthTexture);
 
 SAMPLER(sampler_BlitTexture);
 SAMPLER(my_point_clamp_sampler);
+
+// URP pre-defined the following variable on 2023.2+.
+#if UNITY_VERSION < 202320
 float4 _BlitTexture_TexelSize;
+#endif
 
 #ifndef kMaterialFlagSpecularSetup
 #define kMaterialFlagSpecularSetup 8 // Lit material use specular setup instead of metallic setup
@@ -96,7 +100,7 @@ RayHit InitializeRayHit()
 // GGX VNDF via importance sampling
 half3 ImportanceSampleGGX_VNDF(float2 random, half3 normalWS, half3 viewDirWS, half smoothness, out bool valid)
 {
-    half roughness = (1.0 - smoothness); // This requires perceptual roughness, not roughness [(1.0 - smoothness) * (1.0 - smoothness)].
+    half roughness = (1.0 - smoothness); // roughness: [(1.0 - smoothness) * (1.0 - smoothness)]
     roughness *= roughness;
 
     half3x3 localToWorld = GetLocalFrame(normalWS);
