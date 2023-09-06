@@ -292,10 +292,10 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 				
 				float2 random = float2(GenerateRandomFloat(screenUV), GenerateRandomFloat(screenUV));
 				bool valid;
-				half3 sampleNormal = ImportanceSampleGGX_VNDF(random, normalWS, -invViewDirWS, gBuffer2.a, valid);
+				half3 reflectVector = ImportanceSampleGGX_VNDF(random, normalWS, -invViewDirWS, gBuffer2.a, valid);
 				if (!valid)
 					return half3(0.0, 0.0, 0.0);
-				ray.direction = sampleNormal;
+				ray.direction = reflectVector;
 				
 				half dither = half(InterleavedGradientNoise(screenUV * _ScreenSize.xy, 0)) * 0.25 - 0.125 + half(GenerateRandomFloat(screenUV)) * 0.1 - 0.05;
 				RayHit rayHit = RayMarching(ray, dither, length(depth));
@@ -321,7 +321,6 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 			Name "Resolve Reflection"
 			Tags { "LightMode" = "Screen Space Reflection PBR Accumulation" }
 			
-			// Preserve source alpha
 			Blend One Zero
 			
 			HLSLPROGRAM
@@ -364,7 +363,6 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 			#include "./ScreenSpaceReflection.hlsl"
 			#include "./TemporalAccumulation.hlsl"
 			
-			// TODO: should we generate gaussian color pyramid to improve rough reflections in approximation mode?
 			half4 frag(Varyings input) : SV_Target
 			{
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
@@ -456,7 +454,6 @@ Shader "Hidden/Lighting/ScreenSpaceReflection"
 			#include "./ScreenSpaceReflection.hlsl"
 			#include "./TemporalAccumulation.hlsl"
 			
-			// TODO: should we generate gaussian color pyramid to improve rough reflections in approximation mode?
 			half4 frag(Varyings input) : SV_Target
 			{
 				UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);

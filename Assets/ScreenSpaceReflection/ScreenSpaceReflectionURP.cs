@@ -108,13 +108,15 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
         if (backFaceDepthPass == null)
         {
             backFaceDepthPass = new(material);
-            backFaceDepthPass.renderPassEvent = RenderPassEvent.AfterRenderingOpaques - 1;
+            // Skybox pass doesn't reset the render target in 2023.2.
+            // If we change the render target after opaque rendering, it won't draw to the screen.
+            backFaceDepthPass.renderPassEvent = RenderPassEvent.AfterRenderingSkybox;
         }
 
         if (screenSpaceReflectionPass == null)
         {
             screenSpaceReflectionPass = new(resolution, mipmapsMode, material);
-            screenSpaceReflectionPass.renderPassEvent = RenderPassEvent.BeforeRenderingTransparents;
+            screenSpaceReflectionPass.renderPassEvent = RenderPassEvent.BeforeRenderingTransparents + 1;
         }
         else
         {
@@ -172,7 +174,14 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
             backFaceDepthPass.ssrVolume = ssrVolume;
             renderer.EnqueuePass(backFaceDepthPass);
             screenSpaceReflectionPass.isMotionValid = isMotionValid;
+#if UNITY_2023_2_OR_NEWER
+            // [PBR Accumulation] Looks like there's a bug with the queue of URP's final blit pass when enabling FXAA in 2023.2 (alpha & beta).
+            // We will move the queue of SSR pass forward in that case.
+            // The next step is to integrate with SRP render graph, and probably there will be more injection points available in URP, which makes PBR Accumulation more useful.
+            screenSpaceReflectionPass.renderPassEvent = ssrVolume.algorithm == ScreenSpaceReflection.Algorithm.PBRAccumulation ? (ssrVolume.accumFactor.value == 0.0f ? RenderPassEvent.BeforeRenderingPostProcessing : (renderingData.cameraData.camera.cameraType != CameraType.SceneView && renderingData.cameraData.camera.GetComponent<UniversalAdditionalCameraData>().antialiasing == AntialiasingMode.FastApproximateAntialiasing) ? RenderPassEvent.AfterRenderingPostProcessing - 1 : RenderPassEvent.AfterRenderingPostProcessing) : RenderPassEvent.BeforeRenderingTransparents;
+#else
             screenSpaceReflectionPass.renderPassEvent = ssrVolume.algorithm == ScreenSpaceReflection.Algorithm.PBRAccumulation ? (ssrVolume.accumFactor.value == 0.0f ? RenderPassEvent.BeforeRenderingPostProcessing : RenderPassEvent.AfterRenderingPostProcessing) : RenderPassEvent.BeforeRenderingTransparents;
+#endif
             screenSpaceReflectionPass.ssrVolume = ssrVolume;
             renderer.EnqueuePass(screenSpaceReflectionPass);
             isLogPrinted = false;
@@ -477,7 +486,11 @@ public class ScreenSpaceReflectionURP : ScriptableRendererFeature
                 return GraphicsFormat.R8G8B8A8_UNorm;
             else if (index == 2) // normal normal normal packedSmoothness
                 // NormalWS range is -1.0 to 1.0, so we need a signed render texture.
+#if UNITY_2023_2_OR_NEWER
+                if (SystemInfo.IsFormatSupported(GraphicsFormat.R8G8B8A8_SNorm, GraphicsFormatUsage.Render))
+#else
                 if (SystemInfo.IsFormatSupported(GraphicsFormat.R8G8B8A8_SNorm, FormatUsage.Render))
+#endif
                     return GraphicsFormat.R8G8B8A8_SNorm;
                 else
                     return GraphicsFormat.R16G16B16A16_SFloat;
